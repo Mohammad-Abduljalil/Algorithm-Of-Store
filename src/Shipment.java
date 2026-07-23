@@ -48,6 +48,14 @@ public class Shipment {
         return this.shipmentId;
     }
 
+    void recalculateShipmentCost(){
+        float total = 0;
+        for (Product p : listOfProducts) {
+            total += p.getQuantityOfProduct() * p.getPriceOfProduct();
+        }
+        this.shipmentCost = total;
+    }
+
     private void Budget(){
         System.out.println();
         System.out.println("Maximum Budget Of shipment is : "+getMaximumBudgetOfShipment());

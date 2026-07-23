@@ -1,8 +1,23 @@
 
 
 public class BSTTree {
+    Shipment root;
+
     public BSTTree() {
     }
+
+    public void insertShipment(Shipment shipment){
+        root = Insert(root, shipment);
+    }
+
+    public void deleteShipmentByID(int ID){
+        root = deleteShipment(root, ID);
+    }
+
+    public Shipment searchShipmentByID(int ID){
+        return searchShipmentByID(root, ID);
+    }
+    // ===============================================================
 
     public Shipment Insert(Shipment root, Shipment shipment) {
         if (root == null) {
@@ -11,7 +26,9 @@ public class BSTTree {
             root.left = Insert(root.left, shipment);
         } else if (shipment.getShipmentId() > root.getShipmentId()) {
             root.right = Insert(root.right, shipment);
-        } else return null;
+        } else {
+            return root;
+        }
         return root;
     }
 
@@ -43,9 +60,11 @@ public class BSTTree {
                     root = temp;
                 }
             } else {
-                Shipment temp = minValueShipment(root.right);
-                root = temp;
-                root.right = deleteShipment(root.right, temp.getShipmentId());
+                Shipment successor = minValueShipment(root.right);
+                Shipment newRight = deleteShipment(root.right, successor.getShipmentId());
+                successor.left = root.left;
+                successor.right = newRight;
+                root = successor;
             }
         }
 

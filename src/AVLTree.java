@@ -3,6 +3,19 @@
 public class AVLTree {
     Product root;
     public AVLTree(){}
+
+    public void insertProduct(Product product){
+        root = Insert(root, product);
+    }
+
+    public void deleteProductByID(int ID){
+        root = deleteProduct(root, ID);
+    }
+
+    public Product searchProductByID(int ID){
+        return searchProductByID(root, ID);
+    }
+
     int hight(Product prod) {
         if(prod==null){
             return 0;
@@ -124,9 +137,11 @@ public class AVLTree {
                 }
             }
             else{
-                Product temp= minValueProduct(root.right);
-                root=temp;
-                root.right=deleteProduct(root.right,temp.getID());
+                Product successor = minValueProduct(root.right);
+                Product newRight = deleteProduct(root.right, successor.getID());
+                successor.left = root.left;
+                successor.right = newRight;
+                root = successor;
             }
         }
         if (root==null)

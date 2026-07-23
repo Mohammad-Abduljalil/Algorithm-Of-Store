@@ -1,9 +1,17 @@
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Scanner;
 
 public class ShipmentsRegisters {
     private ArrayList<Shipment> listOfShipment;
+    HashMap<Integer, Shipment> shipmentMap;
     private Scanner scan=new Scanner(System.in);
     private BSTTree bstTree=new BSTTree();
     private HeapPriority heapPriority;
@@ -11,6 +19,7 @@ public class ShipmentsRegisters {
 
     public ShipmentsRegisters(Orders orders){
         listOfShipment=new ArrayList<>();
+        shipmentMap = new HashMap<>();
         this.orders=orders;
     }
 
@@ -47,10 +56,15 @@ public class ShipmentsRegisters {
 
     public void addShipment(ProductManagement productManagement){
         Shipment shipment=ReadInfoOfShipment();
+        if (shipmentMap.containsKey(shipment.getShipmentId())){
+            System.out.println(" This Shipment ID already exists! Please try again with a different ID. ");
+            return;
+        }
         listOfShipment.add(shipment);
         System.out.println("Add a products to this Shipment : ");
         shipment.addProductToShipment(productManagement);
-        bstTree.Insert(listOfShipment.get(0),shipment);
+        bstTree.insertShipment(shipment);
+        shipmentMap.put(shipment.getShipmentId(), shipment);
         this.orders.toAddNewOrder(shipment);
     }
 
@@ -60,7 +74,8 @@ public class ShipmentsRegisters {
             return;
         }
         Order order=this.orders.deleteOrderWithPriority();
-        bstTree.deleteShipment(listOfShipment.get(0),order.getShipment().getShipmentId());
+        bstTree.deleteShipmentByID(order.getShipment().getShipmentId());
+        shipmentMap.remove(order.getShipment().getShipmentId());
         listOfShipment.remove(order.shipment);
         System.out.println("The Shipment removed successfully ");
     }
@@ -68,7 +83,7 @@ public class ShipmentsRegisters {
     public void updateTheDeliveryDateById(){
         System.out.println("Please Enter The Id of Shipment : ");
         int id=scan.nextInt();
-        Shipment shipment=bstTree.searchShipmentByID(listOfShipment.get(0),id);
+        Shipment shipment=shipmentMap.get(id);
         if (shipment!=null) {
             System.out.println("Please Enter The Delivery Date of Shipment : ");
             LocalDate customDate;
@@ -87,7 +102,7 @@ public class ShipmentsRegisters {
                 }while(day>31 || day<1);
                 customDate=LocalDate.of(year,month,day);
             }while(customDate.isBefore(LocalDate.now()));
-            listOfShipment.get(listOfShipment.indexOf(shipment)).setDeliveryDate(customDate.getYear()+"/"+customDate.getMonth()+"/"+customDate.getDayOfMonth());
+            shipment.setDeliveryDate(customDate.getYear()+"/"+customDate.getMonth()+"/"+customDate.getDayOfMonth());
             this.orders.editShipmentInOrder(shipment,shipment.getShipmentId());
         }
         else
@@ -98,7 +113,7 @@ public class ShipmentsRegisters {
     public Shipment searchShipmentByID(){
         System.out.println("Please Enter The Id of Shipment : ");
         int id=scan.nextInt();
-        Shipment shipment=bstTree.searchShipmentByID(listOfShipment.get(0),id);
+        Shipment shipment=shipmentMap.get(id);
         if (shipment==null){
             System.out.println(" this Shipment isn't excite!  ");
         }
@@ -123,7 +138,7 @@ public class ShipmentsRegisters {
         do {
             System.out.println("Please Enter The ID of Shipment : ");
             id=scan.nextInt();
-            shipment=bstTree.searchShipmentByID(listOfShipment.get(0),id);
+            shipment=shipmentMap.get(id);
         }while(shipment==null);
         shipment.addProductToShipment(productManagement);
         this.orders.editShipmentInOrder(shipment,shipment.getShipmentId());
@@ -181,5 +196,70 @@ public class ShipmentsRegisters {
         }
     }
 
+   public void saveToFile(String path){
+        try (PrintWriter writer = new PrintWriter(new FileWriter(path))) {
+            for (Shipment s : listOfShipment){
+                StringBuilder productsPart = new StringBuilder();
+                for (Product p : s.listOfProducts){
+                    if (productsPart.length() > 0) productsPart.append("|");
+                    productsPart.append(p.getID()).append(":").append(p.getNameOfProduct())
+                            .append(":").append(p.getPriceOfProduct()).append(":").append(p.getQuantityOfProduct());
+                }
+                writer.println(s.getShipmentId() + "," + s.getShipmentDestination() + "," +
+                        s.getMaximumBudgetOfShipment() + "," + s.getDeliveryDate() + "," + productsPart);
+            }
+        } catch (IOException e){
+            System.out.println(" Error while saving shipments: " + e.getMessage());
+        }
+    }
+
+    public void loadFromFile(String path){
+        File file = new File(path);
+        if (!file.exists()){
+            return;
+        }
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null){
+                if (line.isBlank()) continue;
+                String[] parts = line.split(",", -1);
+                int id = Integer.parseInt(parts[0]);
+                String destination = parts[1];
+                float budget = Float.parseFloat(parts[2]);
+                String deliveryDate = parts[3];
+                String productsPart = parts.length > 4 ? parts[4] : "";
+
+                if (shipmentMap.containsKey(id)) continue;
+
+                Shipment shipment = new Shipment(id);
+                shipment.setShipmentDestination(destination);
+                shipment.setMaximumBudgetOfShipment(budget);
+                shipment.setDeliveryDate(deliveryDate);
+
+                if (!productsPart.isEmpty()){
+                    for (String entry : productsPart.split("\\|")){
+                        String[] pf = entry.split(":", -1);
+                        int pid = Integer.parseInt(pf[0]);
+                        String pname = pf[1];
+                        int pprice = Integer.parseInt(pf[2]);
+                        int pqty = Integer.parseInt(pf[3]);
+
+                        Product snapshotProduct = new Product(pid);
+                        snapshotProduct.setNameOfProduct(pname);
+                        snapshotProduct.setPriceOfProduct(pprice);
+                        snapshotProduct.setQuantityOfProduct(pqty);
+                        shipment.listOfProducts.add(snapshotProduct);
+                    }
+                }
+                shipment.recalculateShipmentCost();
+
+                listOfShipment.add(shipment);
+                bstTree.insertShipment(shipment);
+                shipmentMap.put(id, shipment);
+            }
+        } catch (IOException e){
+            System.out.println(" Error while loading shipments: " + e.getMessage());
+        }
+    }
 
 }

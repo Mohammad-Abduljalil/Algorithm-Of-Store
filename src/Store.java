@@ -8,6 +8,8 @@ public class Store {
 
     ShipmentsRegisters shipmentsRegisters=new ShipmentsRegisters(orders);
 
+    AuthManager authManager=new AuthManager();
+
     Scanner scan=new Scanner(System.in);
 
 
@@ -29,17 +31,44 @@ public class Store {
         System.out.println("14- Value Of store ");
         System.out.println("15- high Shipment cost ");
         System.out.println("16- All cost of Orders ");
-        System.out.println("17- Exit ");
+        System.out.println("17- Save Data (Admin only) ");
+        System.out.println("18- Register New Employee (Admin only) ");
+        System.out.println("19- Change My Password ");
+        System.out.println("20- Print Low Stock Products ");
+        System.out.println("21- Print All Categories ");
+        System.out.println("22- Print Products By Category ");
+        System.out.println("23- Print Audit Log (Admin only) ");
+        System.out.println("24- Exit ");
+    }
+
+    boolean requireAdmin(User currentUser, String actionName){
+        if (currentUser.getRole() != Role.ADMIN){
+            System.out.println(" Access Denied! This action requires Admin privileges. ");
+            AuditLog.record(currentUser.getUsername(), actionName, "DENIED - insufficient privileges (role=" + currentUser.getRole() + ")");
+            return false;
+        }
+        return true;
     }
 
     void startStore(){
+        Persistence.loadAll(productManagement, shipmentsRegisters, orders);
+
+        User currentUser = authManager.login();
+        if (currentUser == null){
+            System.out.println(" Too many failed login attempts. Goodbye. ");
+            return;
+        }
+
         while(true){
             printStore();
             System.out.println("Enter a Number : ");
             int valueToChose= scan.nextInt();
             switch (valueToChose){
                 case 1:
-                    productManagement.addNewProduct();
+                    if (requireAdmin(currentUser, "Add Product")){
+                        productManagement.addNewProduct();
+                        AuditLog.record(currentUser.getUsername(), "Add Product", "SUCCESS");
+                    }
                     break;
                 case 2:
                     productManagement.printProducts();
@@ -48,19 +77,30 @@ public class Store {
                     productManagement.searchProductByID();
                     break;
                 case 4:
-                    productManagement.updateThePriceOfProductByID();
+                    if (requireAdmin(currentUser, "Update Product Price")){
+                        productManagement.updateThePriceOfProductByID();
+                        AuditLog.record(currentUser.getUsername(), "Update Product Price", "SUCCESS");
+                    }
                     break;
                 case 5:
-                    productManagement.updateTheQuantityOfProductByID();
+                    if (requireAdmin(currentUser, "Update Product Quantity")){
+                        productManagement.updateTheQuantityOfProductByID();
+                        AuditLog.record(currentUser.getUsername(), "Update Product Quantity", "SUCCESS");
+                    }
                     break;
                 case 6:
-                    productManagement.deleteProductByID();
+                    if (requireAdmin(currentUser, "Delete Product")){
+                        productManagement.deleteProductByID();
+                        AuditLog.record(currentUser.getUsername(), "Delete Product", "SUCCESS");
+                    }
                     break;
                 case 7:
                     shipmentsRegisters.addShipment(productManagement);
+                    AuditLog.record(currentUser.getUsername(), "Add Shipment", "SUCCESS");
                     break;
                 case 8:
                     shipmentsRegisters.addProductToShipmentById(productManagement);
+                    AuditLog.record(currentUser.getUsername(), "Add Product To Shipment", "SUCCESS");
                     break;
                 case 9:
                     shipmentsRegisters.printAllShipments();
@@ -69,29 +109,68 @@ public class Store {
                     shipmentsRegisters.searchShipmentByID();
                     break;
                 case 11:
-                    shipmentsRegisters.updateTheDeliveryDateById();
+                    if (requireAdmin(currentUser, "Update Shipment Delivery Date")){
+                        shipmentsRegisters.updateTheDeliveryDateById();
+                        AuditLog.record(currentUser.getUsername(), "Update Shipment Delivery Date", "SUCCESS");
+                    }
                     break;
                 case 12:
-                    shipmentsRegisters.deleteShipmentWithPriority();
+                    if (requireAdmin(currentUser, "Delete Shipment (High Priority)")){
+                        shipmentsRegisters.deleteShipmentWithPriority();
+                        AuditLog.record(currentUser.getUsername(), "Delete Shipment (High Priority)", "SUCCESS");
+                    }
                     break;
                 case 13:
-                    orders.updateThePriorityOfOrderById();
+                    if (requireAdmin(currentUser, "Update Order Priority")){
+                        orders.updateThePriorityOfOrderById();
+                        AuditLog.record(currentUser.getUsername(), "Update Order Priority", "SUCCESS");
+                    }
                     break;
                 case 14:
-                    productManagement.storeValue();
+                    if (requireAdmin(currentUser, "View Store Value")) productManagement.storeValue();
                     break;
                 case 15:
-                    shipmentsRegisters.highCostShipments();
+                    if (requireAdmin(currentUser, "View High Cost Shipments")) shipmentsRegisters.highCostShipments();
                     break;
                 case 16:
-                    orders.totalCostOfOrders();
+                    if (requireAdmin(currentUser, "View Total Cost Of Orders")) orders.totalCostOfOrders();
                     break;
                 case 17:
+                    if (requireAdmin(currentUser, "Manual Save Data")){
+                        Persistence.saveAll(productManagement, shipmentsRegisters, orders);
+                        AuditLog.record(currentUser.getUsername(), "Manual Save Data", "SUCCESS");
+                    }
+                    break;
+                case 18:
+                    if (requireAdmin(currentUser, "Register New Employee")){
+                        authManager.registerNewUser();
+                        AuditLog.record(currentUser.getUsername(), "Register New Employee", "SUCCESS");
+                    }
+                    break;
+                case 19:
+                    boolean passwordChanged = authManager.changePassword(currentUser);
+                    AuditLog.record(currentUser.getUsername(), "Change Own Password", passwordChanged ? "SUCCESS" : "FAILED - incorrect current password");
+                    break;
+                case 20:
+                    productManagement.printLowStockProducts();
+                    break;
+                case 21:
+                    productManagement.printAllCategories();
+                    break;
+                case 22:
+                    productManagement.printProductsByCategory();
+                    break;
+                case 23:
+                    if (requireAdmin(currentUser, "View Audit Log")) AuditLog.printLog();
+                    break;
+                case 24:
+                    Persistence.saveAll(productManagement, shipmentsRegisters, orders);
+                    AuditLog.record(currentUser.getUsername(), "Logout", "Program exited normally");
                     System.out.println(" Thank you for visit ");
                     return;
                 default:
                     System.out.println(" Sorry, a wrong number! ");
-                    return;
+                    break;
             }
         }
     }

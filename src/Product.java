@@ -2,14 +2,32 @@
 import java.util.Scanner;
 
 public class Product {
+    private static final int DEFAULT_MINIMUM_STOCK_THRESHOLD = 5;
+    public static final String DEFAULT_CATEGORY = "Uncategorized";
+
     private final int ID;
     private  int priceOfProduct,quantityOfProduct,hight;
+    private int minimumStockThreshold = DEFAULT_MINIMUM_STOCK_THRESHOLD;
     private String nameOfProduct;
+    private String category = DEFAULT_CATEGORY;
     Product left,right;
     Scanner scan=new Scanner(System.in);
 
     public Product(int id){
         ID = id;
+    }
+
+    public void updateTheCategory(){
+        System.out.println("Please Enter the Category of Product (e.g. Electronics, Food, Clothes) : ");
+        this.category = scan.next();
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = (category == null || category.isBlank()) ? DEFAULT_CATEGORY : category;
     }
 
     public void updateThePriceOfProduct(){
@@ -28,6 +46,25 @@ public class Product {
 
     public void updateTheQuantityOfProduct(int Quantity){
         this.quantityOfProduct+=Quantity;
+    }
+
+    public void updateTheMinimumStockThreshold(){
+        do {
+            System.out.println("Please Enter the Minimum Stock Threshold (alert when quantity drops to this level or below) : ");
+            this.minimumStockThreshold = scan.nextInt();
+        } while (this.minimumStockThreshold < 0);
+    }
+
+    public int getMinimumStockThreshold() {
+        return minimumStockThreshold;
+    }
+
+    public void setMinimumStockThreshold(int minimumStockThreshold) {
+        this.minimumStockThreshold = minimumStockThreshold;
+    }
+
+    public boolean isLowStock() {
+        return this.quantityOfProduct <= this.minimumStockThreshold;
     }
 
     public int getID() {
