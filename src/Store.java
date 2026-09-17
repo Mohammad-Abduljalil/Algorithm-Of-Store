@@ -41,6 +41,7 @@ public class Store {
         System.out.println("24- Exit ");
     }
 
+    // تُعيد true فقط لو كان المستخدم الحالي Admin، وإلا تطبع رسالة رفض وتُسجّلها في سجل العمليات
     boolean requireAdmin(User currentUser, String actionName){
         if (currentUser.getRole() != Role.ADMIN){
             System.out.println(" Access Denied! This action requires Admin privileges. ");
@@ -51,7 +52,7 @@ public class Store {
     }
 
     void startStore(){
-        Persistence.loadAll(productManagement, shipmentsRegisters, orders);
+        Persistence.loadAll(productManagement, shipmentsRegisters, orders); // تحميل تلقائي عند بدء البرنامج
 
         User currentUser = authManager.login();
         if (currentUser == null){
@@ -137,7 +138,7 @@ public class Store {
                     break;
                 case 17:
                     if (requireAdmin(currentUser, "Manual Save Data")){
-                        Persistence.saveAll(productManagement, shipmentsRegisters, orders);
+                        Persistence.saveAll(productManagement, shipmentsRegisters, orders); // حفظ يدوي
                         AuditLog.record(currentUser.getUsername(), "Manual Save Data", "SUCCESS");
                     }
                     break;
@@ -164,7 +165,7 @@ public class Store {
                     if (requireAdmin(currentUser, "View Audit Log")) AuditLog.printLog();
                     break;
                 case 24:
-                    Persistence.saveAll(productManagement, shipmentsRegisters, orders);
+                    Persistence.saveAll(productManagement, shipmentsRegisters, orders); // حفظ تلقائي عند الخروج
                     AuditLog.record(currentUser.getUsername(), "Logout", "Program exited normally");
                     System.out.println(" Thank you for visit ");
                     return;

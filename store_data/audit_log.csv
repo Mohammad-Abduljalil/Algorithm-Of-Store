@@ -1,0 +1,60 @@
+2026-07-23 15:43:39 | admin | Login | SUCCESS
+2026-07-23 15:43:56 | admin | Add Product | SUCCESS
+2026-07-23 15:44:47 | admin | Logout | Program exited normally
+2026-08-25 11:00:20 | admin | Login | FAILED
+2026-08-25 11:00:26 | admin | Login | SUCCESS
+2026-08-25 11:02:42 | admin | Delete Product | SUCCESS - GUI
+2026-08-25 11:03:04 | admin | Add Product | SUCCESS - GUI
+2026-08-25 11:04:43 | admin | Add Shipment | SUCCESS - GUI
+2026-08-25 11:05:04 | admin | Add Product To Shipment | SUCCESS - GUI
+2026-08-25 11:05:24 | admin | Delete Shipment | SUCCESS - GUI
+2026-08-25 11:05:48 | admin | Update Product | SUCCESS - GUI
+2026-08-25 11:06:23 | admin | Add Shipment | SUCCESS - GUI
+2026-08-25 11:06:34 | admin | Add Product To Shipment | SUCCESS - GUI
+2026-08-25 11:07:03 | admin | Add Shipment | SUCCESS - GUI
+2026-08-25 11:07:28 | admin | Delete Product | SUCCESS - GUI
+2026-08-25 11:07:34 | admin | Delete Shipment | SUCCESS - GUI
+2026-08-25 11:07:37 | admin | Delete Shipment | SUCCESS - GUI
+2026-08-25 11:07:44 | admin | Logout | GUI session ended
+2026-09-08 15:18:19 | admin | Login | SUCCESS
+2026-09-08 16:01:49 | admin | Login | FAILED
+2026-09-08 16:01:54 | admin | Login | SUCCESS
+2026-09-08 16:02:46 | admin | Add Product | SUCCESS - GUI
+2026-09-08 16:03:35 | admin | Update Product | SUCCESS - GUI
+2026-09-08 16:04:37 | admin | Add Shipment | SUCCESS - GUI
+2026-09-08 16:05:04 | admin | Add Product To Shipment | SUCCESS - GUI
+2026-09-08 16:05:10 | admin | Return Highest Priority Order | SUCCESS - GUI
+2026-09-08 16:06:05 | admin | Add Shipment | SUCCESS - GUI
+2026-09-08 16:06:16 | admin | Add Product To Shipment | SUCCESS - GUI
+2026-09-08 16:07:20 | admin | Register New Employee | SUCCESS - created 'Mo' (EMPLOYEE)
+2026-09-08 16:07:41 | admin | Save Data | SUCCESS - GUI
+2026-09-08 16:07:44 | admin | Logout | GUI session ended
+2026-09-08 16:07:52 | Mo | Login | SUCCESS
+2026-09-08 16:08:22 | Mo | Update Product | DENIED - insufficient privileges (role=EMPLOYEE)
+2026-09-08 16:08:42 | Mo | Return Highest Priority Order | SUCCESS - GUI
+2026-09-08 16:09:12 | Mo | Change Own Password | FAILED - incorrect current password
+2026-09-08 16:09:50 | Mo | Logout | GUI session ended
+2026-09-08 16:39:16 | admin | Login | FAILED
+2026-09-08 16:39:22 | admin | Login | SUCCESS
+2026-09-08 16:51:52 | admin | Login | SUCCESS
+2026-09-08 16:52:02 | admin | Logout | Application closed
+2026-09-08 16:57:12 | admin | Login | SUCCESS
+2026-09-08 16:58:41 | admin | Logout | GUI session ended
+2026-09-08 17:02:57 | admin | Login | SUCCESS
+2026-09-08 17:03:02 | admin | Logout | Application closed
+2026-09-08 17:05:53 | admin | Login | SUCCESS
+2026-09-08 17:05:59 | admin | Logout | Application closed
+2026-09-08 17:16:54 | admin | Login | SUCCESS
+2026-09-08 17:16:59 | admin | Logout | Application closed
+2026-09-10 18:31:46 | admin | Login | SUCCESS
+2026-09-10 18:31:57 | admin | Logout | Application closed
+2026-09-10 19:35:24 | admin | Login | SUCCESS
+2026-09-10 19:35:40 | admin | Logout | Application closed
+2026-09-10 19:39:29 | admin | Login | FAILED
+2026-09-10 19:39:37 | admin | Login | SUCCESS
+2026-09-10 19:45:13 | admin | Logout | Application closed
+2026-09-17 15:31:56 | admin | Login | SUCCESS
+2026-09-17 15:43:14 | admin | Login | SUCCESS
+2026-09-17 15:43:36 | admin | Logout | GUI session ended
+2026-09-17 15:47:42 | admin | Login | SUCCESS
+2026-09-17 15:48:09 | admin | Logout | Application closed

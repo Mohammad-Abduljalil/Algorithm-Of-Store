@@ -34,6 +34,7 @@ public class AuthManager {
         System.out.println(" Please change this password after logging in (menu option: Change My Password). ");
     }
 
+    // SHA-256 مضمون التوفر دائمًا في جافا القياسية، لذا NoSuchAlgorithmException لن تحدث فعليًا هنا
     static String hashPassword(String password){
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -66,7 +67,7 @@ public class AuthManager {
             System.out.println(" Invalid username or password. Attempts left: " + (MAX_LOGIN_ATTEMPTS - attempts));
             AuditLog.record(username, "Login", "FAILED (attempt " + attempts + "/" + MAX_LOGIN_ATTEMPTS + ")");
         }
-        return null;
+        return null; // فشلت كل المحاولات
     }
 
     public void registerNewUser(){
@@ -102,6 +103,57 @@ public class AuthManager {
         return true;
     }
 
+    // ===================== دوال صديقة للواجهة الرسومية (GUI) =====================
+    // نفس منطق login()/registerNewUser()/changePassword() لكن تستقبل المُدخلات كمعاملات
+    // مباشرة بدل قراءتها من Scanner، لأن الواجهة الرسومية تجمعها عبر حقول نصية وليس الكونسول.
+
+    public User loginGui(String username, String password){
+        User user = users.get(username);
+        if (user != null && user.verifyPassword(password)){
+            AuditLog.record(username, "Login", "SUCCESS");
+            return user;
+        }
+        AuditLog.record(username == null || username.isBlank() ? "(empty)" : username, "Login", "FAILED");
+        return null;
+    }
+
+    public int getMaxLoginAttempts(){
+        return MAX_LOGIN_ATTEMPTS;
+    }
+
+    // تُعيد null لو نجح التسجيل، أو رسالة خطأ نصية لو فشل (اسم مستخدم مكرر مثلًا)
+    public String registerNewUserGui(String username, String password, Role role, String actingUsername){
+        if (username == null || username.isBlank()){
+            return "Username cannot be empty.";
+        }
+        if (users.containsKey(username)){
+            return "This username already exists!";
+        }
+        users.put(username, new User(username, hashPassword(password), role));
+        saveUsers();
+        AuditLog.record(actingUsername, "Register New Employee", "SUCCESS - created '" + username + "' (" + role + ")");
+        return null;
+    }
+
+    // تُعيد null لو نجح التغيير، أو رسالة خطأ نصية لو فشل
+    public String changePasswordGui(User currentUser, String currentPassword, String newPassword){
+        if (!currentUser.verifyPassword(currentPassword)){
+            AuditLog.record(currentUser.getUsername(), "Change Own Password", "FAILED - incorrect current password");
+            return "Incorrect current password!";
+        }
+        if (newPassword == null || newPassword.length() < 8){
+            return "New password must be at least 8 characters long.";
+        }
+        currentUser.setPasswordHash(hashPassword(newPassword));
+        saveUsers();
+        AuditLog.record(currentUser.getUsername(), "Change Own Password", "SUCCESS");
+        return null;
+    }
+
+    public java.util.Collection<User> getAllUsers(){
+        return users.values();
+    }
+
     void saveUsers(){
         try {
             new File("store_data").mkdirs();
@@ -118,7 +170,7 @@ public class AuthManager {
     void loadUsers(){
         File file = new File(USERS_FILE);
         if (!file.exists()){
-            return;
+            return; // أول تشغيل - لا يوجد ملف مستخدمين بعد
         }
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;

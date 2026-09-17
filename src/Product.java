@@ -7,7 +7,7 @@ public class Product {
 
     private final int ID;
     private  int priceOfProduct,quantityOfProduct,hight;
-    private int minimumStockThreshold = DEFAULT_MINIMUM_STOCK_THRESHOLD;
+    private int minimumStockThreshold = DEFAULT_MINIMUM_STOCK_THRESHOLD; // تنبيه انخفاض المخزون عند الوصول لهذا الحد أو أقل
     private String nameOfProduct;
     private String category = DEFAULT_CATEGORY;
     Product left,right;

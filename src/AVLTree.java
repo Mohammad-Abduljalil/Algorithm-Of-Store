@@ -4,6 +4,8 @@ public class AVLTree {
     Product root;
     public AVLTree(){}
 
+    // ===== دوال غلاف (Wrapper) تتعامل تلقائياً مع حقل root =====
+    // بدلاً من أن يضطر المستدعي لتمرير الجذر يدوياً وتجاهل القيمة المُعادة
     public void insertProduct(Product product){
         root = Insert(root, product);
     }
@@ -15,7 +17,7 @@ public class AVLTree {
     public Product searchProductByID(int ID){
         return searchProductByID(root, ID);
     }
-
+    // ===============================================================
     int hight(Product prod) {
         if(prod==null){
             return 0;
@@ -137,8 +139,11 @@ public class AVLTree {
                 }
             }
             else{
+                // نجد أصغر عنصر في الفرع الأيمن (الخَلَف Successor)
                 Product successor = minValueProduct(root.right);
+                // نحذفه من الفرع الأيمن أولاً ونحصل على الفرع الأيمن الجديد بعد الحذف
                 Product newRight = deleteProduct(root.right, successor.getID());
+                // نربط successor بالفرع الأيسر الأصلي (كان هذا مفقودًا سابقًا!)
                 successor.left = root.left;
                 successor.right = newRight;
                 root = successor;

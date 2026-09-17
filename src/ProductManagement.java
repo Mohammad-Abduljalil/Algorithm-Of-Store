@@ -10,8 +10,8 @@ import java.util.Scanner;
 
 public class ProductManagement {
     ArrayList<Product> listOfProduct;
-    HashMap<Integer, Product> productMap;
-    HashMap<String, ArrayList<Product>> categoryMap;
+    HashMap<Integer, Product> productMap; // فهرس سريع O(1) للبحث بالـ ID، يعمل بالتوازي مع avlTree
+    HashMap<String, ArrayList<Product>> categoryMap; // فهرس التصنيفات: اسم التصنيف -> قائمة منتجاته
     Scanner scan=new Scanner(System.in);
     AVLTree avlTree=new AVLTree();
     int quantityOfProducts=0;
@@ -46,6 +46,7 @@ public class ProductManagement {
         return product;
     }
 
+    // يُضيف المنتج لفهرس التصنيفات (يُنشئ قائمة جديدة للتصنيف لو كانت أول مرة يظهر فيها)
     private void addToCategoryIndex(Product product){
         categoryMap.computeIfAbsent(product.getCategory(), k -> new ArrayList<>()).add(product);
     }
@@ -71,6 +72,7 @@ public class ProductManagement {
 
     }
 
+    // تطبع تحذيرًا فوريًا لو كانت كمية المنتج عند الحد الأدنى أو أقل منه
     private void checkLowStockAndAlert(Product product){
         if (product.isLowStock()){
             System.out.println(" \u26A0 LOW STOCK ALERT: '" + product.getNameOfProduct() + "' (ID=" + product.getID() +
@@ -81,16 +83,17 @@ public class ProductManagement {
 
     public void addNewProduct(){
         Product product=ReadProductInfo();
+        // فحص التكرار بـ O(1) عبر HashMap بدل O(log n) عبر الشجرة
         if (productMap.containsKey(product.getID())){
             System.out.println(" This Product ID already exists! Please try again with a different ID. ");
-            this.quantityOfProducts -= product.getQuantityOfProduct();
+            this.quantityOfProducts -= product.getQuantityOfProduct(); // التراجع عن الحجز الذي تم في ReadProductInfo
             return;
         }
         listOfProduct.add(product);
         avlTree.insertProduct(product);
         productMap.put(product.getID(), product);
         addToCategoryIndex(product);
-        checkLowStockAndAlert(product);
+        checkLowStockAndAlert(product); // قد تكون الكمية الابتدائية نفسها منخفضة
     }
 
     public Product searchProductByID(){
@@ -246,6 +249,7 @@ public class ProductManagement {
         }
     }
 
+    // يعرض كل التصنيفات الموجودة حاليًا مع عدد منتجات كل تصنيف (O(عدد التصنيفات) عبر categoryMap)
     public void printAllCategories(){
         if (categoryMap.isEmpty()){
             System.out.println(" There is no Products! ");
@@ -258,6 +262,7 @@ public class ProductManagement {
         }
     }
 
+    // يعرض منتجات تصنيف معيّن بحث المستخدم عنه (O(1) للوصول لقائمة التصنيف عبر categoryMap)
     public void printProductsByCategory(){
         if (listOfProduct.isEmpty()){
             System.out.println(" There is no Products! ");
@@ -278,7 +283,9 @@ public class ProductManagement {
         }
     }
 
-     public void saveToFile(String path){
+    // ===================== الحفظ والاسترجاع (Persistence) =====================
+    // صيغة السطر: id,name,price,quantity,minimumStockThreshold,category
+    public void saveToFile(String path){
         try (PrintWriter writer = new PrintWriter(new FileWriter(path))) {
             for (Product p : listOfProduct){
                 writer.println(p.getID() + "," + p.getNameOfProduct() + "," +
@@ -293,7 +300,7 @@ public class ProductManagement {
     public void loadFromFile(String path){
         File file = new File(path);
         if (!file.exists()){
-            return;
+            return; // لا يوجد ملف بيانات سابق (أول تشغيل للبرنامج) - أمر طبيعي
         }
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
@@ -304,10 +311,12 @@ public class ProductManagement {
                 String name = parts[1];
                 int price = Integer.parseInt(parts[2]);
                 int quantity = Integer.parseInt(parts[3]);
+                // parts[4] و parts[5] قد لا يكونا موجودين في ملفات محفوظة قبل إضافة هذه الميزات،
+                // فنستخدم القيم الافتراضية للمنتج في هذه الحالة (توافق رجعي)
                 Integer threshold = (parts.length > 4 && !parts[4].isBlank()) ? Integer.parseInt(parts[4]) : null;
                 String category = (parts.length > 5 && !parts[5].isBlank()) ? parts[5] : null;
 
-                if (productMap.containsKey(id)) continue;
+                if (productMap.containsKey(id)) continue; // تفادي التكرار لو استُدعيت loadFromFile أكثر من مرة
 
                 Product product = new Product(id);
                 product.setNameOfProduct(name);
@@ -331,5 +340,63 @@ public class ProductManagement {
         }
     }
 
-}
+    // ===================== دوال صديقة للواجهة الرسومية (GUI) =====================
+    // نفس منطق addNewProduct/updateThePriceOfProductByID/.../deleteProductByID لكن تستقبل
+    // المُدخلات كمعاملات مباشرة بدل Scanner، وتُعيد رسالة خطأ نصية (null = نجاح).
 
+    public String addNewProductGui(int id, String name, int price, int quantity, int threshold, String category){
+        if (price < 0) return "Price must be a positive number.";
+        if (quantity < 0) return "Quantity must be a positive number.";
+        if (!checkQuantity(quantity)) return "Adding this quantity would exceed the maximum capacity of 1000.";
+        if (productMap.containsKey(id)) return "This Product ID already exists!";
+
+        Product product = new Product(id);
+        product.setNameOfProduct(name);
+        product.setPriceOfProduct(price);
+        product.setQuantityOfProduct(quantity);
+        product.setMinimumStockThreshold(threshold);
+        product.setCategory(category);
+
+        listOfProduct.add(product);
+        avlTree.insertProduct(product);
+        productMap.put(id, product);
+        addToCategoryIndex(product);
+        this.quantityOfProducts += quantity;
+        checkLowStockAndAlert(product);
+        return null;
+    }
+
+    public String updateProductGui(int id, int newPrice, int newQuantity, int newThreshold, String newCategory){
+        Product product = productMap.get(id);
+        if (product == null) return "Product not found.";
+        if (newPrice < 0) return "Price must be a positive number.";
+        if (newQuantity < 0) return "Quantity must be a positive number.";
+
+        int previousQuantity = product.getQuantityOfProduct();
+        int delta = newQuantity - previousQuantity;
+        if (delta > 0 && !checkQuantity(delta)) return "This quantity would exceed the maximum capacity of 1000.";
+
+        removeFromCategoryIndex(product); // نُزيله من فهرس التصنيف القديم قبل تغييره
+        product.setPriceOfProduct(newPrice);
+        product.setQuantityOfProduct(newQuantity);
+        product.setMinimumStockThreshold(newThreshold);
+        product.setCategory(newCategory);
+        addToCategoryIndex(product); // ونُعيد إضافته بالتصنيف الجديد
+
+        this.quantityOfProducts += delta;
+        checkLowStockAndAlert(product);
+        return null;
+    }
+
+    public String deleteProductGui(int id){
+        Product product = productMap.get(id);
+        if (product == null) return "Product not found.";
+        avlTree.deleteProductByID(id);
+        listOfProduct.remove(product);
+        productMap.remove(id);
+        removeFromCategoryIndex(product);
+        this.quantityOfProducts -= product.getQuantityOfProduct();
+        return null;
+    }
+
+}

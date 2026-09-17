@@ -4,11 +4,23 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-
+/**
+ * اختبارات آلية للتحقق من الإصلاحات الأربعة + إصلاح تكرار الـ ID في القوائم.
+ * لا تحتاج تفاعل يدوي (تُحاكي إدخال المستخدم عبر System.in).
+ */
 public class Tests {
 
     static int passed = 0, failed = 0;
 
+    /**
+     * InputStream يُعيد بايت واحد فقط في كل استدعاء read().
+     * ضروري لأن المشروع يُنشئ عدة كائنات Scanner مستقلة (في ShipmentsRegisters,
+     * Orders, ProductManagement, Product) وكلها تُغلّف نفس System.in. إذا استخدمنا
+     * ByteArrayInputStream عاديًا، فإن أول Scanner يقرأ منه قد "يلتهم" بايتات
+     * أكثر مما يحتاج فعليًا في قراءة داخلية واحدة، فتُحرم كائنات Scanner
+     * الأخرى من البيانات المتبقية (رغم وجودها منطقيًا) فيحدث تعليق أو خطأ.
+     * القراءة بايت-بايت تُحاكي دخل الطرفية التفاعلية الحقيقي وتَحل المشكلة.
+     */
     static class SlowInputStream extends InputStream {
         private final byte[] data;
         private int pos = 0;
@@ -39,10 +51,11 @@ public class Tests {
         test15_AuditLog_RecordsActionsAndDenials();
 
         System.out.println("\n=====================================");
-        System.out.println("Final result: " + passed + " Success / " + failed + " Failed");
+        System.out.println("النتيجة النهائية: " + passed + " ناجح / " + failed + " فاشل");
         System.out.println("=====================================");
     }
 
+    // ---------- أدوات مساعدة ----------
 
     static void check(String testName, boolean condition, String detail) {
         if (condition) {
@@ -62,6 +75,7 @@ public class Tests {
         return p;
     }
 
+    // نجمع كل الـ IDs بترتيب inorder يدويًا (بدل الاعتماد على toString)
     static void inOrderIds(Product node, List<Integer> out) {
         if (node == null) return;
         inOrderIds(node.left, out);
@@ -76,13 +90,14 @@ public class Tests {
         inOrderIdsShip(node.right, out);
     }
 
+    // ---------- اختبار 1: حذف عقدة AVL لها ابنان (يجب ألا يضيع الفرع الأيسر) ----------
     static void test1_AVL_DeleteTwoChildrenPreservesLeftSubtree() {
-        System.out.println("\n--- Test 1: Delete node with two children ---");
+        System.out.println("\n--- اختبار 1: حذف AVL لعقدة لها ابنان ---");
         AVLTree tree = new AVLTree();
-        int[] ids = {50, 30, 70, 20, 40, 60, 80}; // perfectly balanced tree
+        int[] ids = {50, 30, 70, 20, 40, 60, 80}; // شجرة متوازنة تمامًا
         for (int id : ids) tree.insertProduct(newProduct(id));
 
-        // 50 has two children (30 and 70) => deletion uses the successor
+        // 50 لها ابنان (30 و 70) => الحذف يستخدم الخَلَف (successor)
         tree.deleteProductByID(50);
 
         List<Integer> result = new ArrayList<>();
@@ -92,43 +107,46 @@ public class Tests {
         for (int id : ids) if (id != 50) expected.add(id);
         expected.sort(null);
 
-        check("AVL Delete",
+        check("AVL Delete - كل العناصر موجودة بعد الحذف (لم يضع 20,30,40)",
                 result.equals(expected),
-                "Expect=" + expected + " But result=" + result);
+                "المتوقع=" + expected + " لكن الناتج=" + result);
     }
 
+    // ---------- اختبار 2: تحديث جذر AVL تلقائيًا بعد Rotation ----------
     static void test2_AVL_RootUpdatesAfterRotation() {
-        System.out.println("\n--- Test 2: Refresh root after rotation ---");
+        System.out.println("\n--- اختبار 2: تحديث الجذر بعد Rotation ---");
         AVLTree tree = new AVLTree();
+        // إدخال تصاعدي متتالي => يفرض دوران (rotation) في AVL
         tree.insertProduct(newProduct(10));
         tree.insertProduct(newProduct(20));
-        tree.insertProduct(newProduct(30));
+        tree.insertProduct(newProduct(30)); // هنا يحدث Left Rotate، الجذر الجديد = 20
 
-        check("AVL Root - root becomes 20 after rotation",
+        check("AVL Root - الجذر أصبح 20 بعد الدوران",
                 tree.root != null && tree.root.getID() == 20,
-                "Actually root = " + (tree.root == null ? "null" : tree.root.getID()));
+                "الجذر الفعلي = " + (tree.root == null ? "null" : tree.root.getID()));
 
-        check("AVL Root - search for 10 works via the new root",
-                tree.searchProductByID(10) != null, "10 doesn't exist!");
-        check("AVL Root - search for 30 works via the new root",
-                tree.searchProductByID(30) != null, "30 doesn't exist!");
+        check("AVL Root - البحث عن 10 يعمل عبر الجذر الجديد",
+                tree.searchProductByID(10) != null, "لم يتم إيجاد 10");
+        check("AVL Root - البحث عن 30 يعمل عبر الجذر الجديد",
+                tree.searchProductByID(30) != null, "لم يتم إيجاد 30");
     }
 
+    // ---------- اختبار 3: إدخال ID مكرر في BST لا يُسقط الشجرة ----------
     static void test3_BST_DuplicateInsertDoesNotBreakTree() {
-        System.out.println("\n--- Test 3: Duplicate ID in BST ---");
+        System.out.println("\n--- اختبار 3: تكرار ID في BST ---");
         BSTTree tree = new BSTTree();
         tree.insertShipment(new Shipment(100));
-        tree.insertShipment(new Shipment(100));
+        tree.insertShipment(new Shipment(100)); // تكرار - يجب ألا يُسقط الشجرة
 
-        check("BST Duplicate - after duplicate insertion the root is not null",
-                tree.root != null, "The root became null!");
-        check("BST Duplicate - the original element exists",
-                tree.searchShipmentByID(100) != null, "Element 100 does not exist!");
+        check("BST Duplicate - الجذر لم يصبح null بعد إدخال مكرر",
+                tree.root != null, "الجذر أصبح null! (نفس الخطأ القديم)");
+        check("BST Duplicate - العنصر الأصلي ما زال موجودًا",
+                tree.searchShipmentByID(100) != null, "العنصر 100 غير موجود");
     }
 
-
+    // ---------- اختبار 4: حذف عقدة BST لها ابنان (نفس اختبار 1 لكن للشحنات) ----------
     static void test4_BST_DeleteTwoChildrenPreservesLeftSubtree() {
-        System.out.println("\n--- Test 4: Delete a node with two children ---");
+        System.out.println("\n--- اختبار 4: حذف BST لعقدة لها ابنان ---");
         BSTTree tree = new BSTTree();
         int[] ids = {50, 30, 70, 20, 40, 60, 80};
         for (int id : ids) tree.insertShipment(new Shipment(id));
@@ -142,49 +160,29 @@ public class Tests {
         for (int id : ids) if (id != 50) expected.add(id);
         expected.sort(null);
 
-        check("BST Delete - all elements exist after deletion (20,30,40)",
+        check("BST Delete - كل العناصر موجودة بعد الحذف (لم يضع 20,30,40)",
                 result.equals(expected),
-                "expected=" + expected + " but result=" + result);
+                "المتوقع=" + expected + " لكن الناتج=" + result);
     }
 
-    static void test5_Store_InvalidMenuDoesNotCrash() {
-        System.out.println("\n--- Test 5: Invalid menu option in Store (after default Admin login) ---");
-        // Clean user data first to ensure a known default Admin account (admin/admin123) is created.
-        deleteRecursively(new File("store_data"));
-        // Simulate: login as admin/admin123 -> invalid option (999) -> exit (24)
-        String simulatedInput = "admin\nadmin123\n999\n24\n";
-        java.io.InputStream originalIn = System.in;
-        System.setIn(new SlowInputStream(simulatedInput));
-        try {
-            new Store().startStore();
-            check("Store Menu - login succeeded, program continued after invalid number and exited normally (24)",
-                    true, "");
-        } catch (Exception e) {
-            check("Store Menu - login succeeded, program continued after invalid number and exited normally (24)",
-                    false, "Exception occurred: " + e);
-        } finally {
-            System.setIn(originalIn);
-            deleteRecursively(new File("store_data")); // clean up after test
-        }
-    }
-
+    // ---------- اختبار 6: تكرار ID شحنة لا يُضاف مرتين لقائمة ShipmentsRegisters ----------
     static void test6_ShipmentsRegisters_DuplicateIdNotAddedToList() {
-        System.out.println("\n--- Test 6: Duplicate Shipment ID in the list ---");
+        System.out.println("\n--- اختبار 6: تكرار ID شحنة في القائمة ---");
 
-        // First shipment ID=100 (completes successfully, needs Order priority later)
-        // Second shipment with same ID=100 (should be rejected before reaching priority request)
+        // شحنة أولى ID=100 (تكتمل بنجاح، وتحتاج أولوية Order لاحقًا)
+        // شحنة ثانية بنفس ID=100 (يجب أن تُرفض قبل الوصول لطلب الأولوية)
         String simulatedInput =
                 "100\nTestDest\n50\n2030\n1\n1\n5\n" +   // addShipment #1
-                        "100\nTestDest2\n60\n2030\n2\n2\n";       // addShipment #2 (duplicate)
+                "100\nTestDest2\n60\n2030\n2\n2\n";       // addShipment #2 (مكرر)
 
-        java.io.InputStream originalIn = System.in;
+        InputStream originalIn = System.in;
         java.io.PrintStream originalOut = System.out;
-        // System.in must be set *before* creating objects, because their Scanner fields
-        // are initialized inside the constructor and bind to System.in at that specific moment.
+        // يجب ضبط System.in *قبل* إنشاء الكائنات، لأن حقول Scanner فيها
+        // تُهيَّأ داخل الـ constructor وترتبط بـ System.in في تلك اللحظة تحديدًا
         System.setIn(new SlowInputStream(simulatedInput));
 
         Orders orders = new Orders();
-        ProductManagement pm = new ProductManagement(); // intentionally empty to simplify input
+        ProductManagement pm = new ProductManagement(); // فارغة عمدًا لتبسيط الإدخال
         ShipmentsRegisters sr = new ShipmentsRegisters(orders);
 
         java.io.ByteArrayOutputStream capturedOut = new java.io.ByteArrayOutputStream();
@@ -201,21 +199,21 @@ public class Tests {
         }
 
         int occurrences = countOccurrences(output, "Shipment ID = 100");
-        check("Shipments - duplicate shipment was not added to the list (only one occurrence for ID=100)",
+        check("Shipments - الشحنة المكررة لم تُضَف للقائمة (تكرار واحد فقط لـ ID=100)",
                 occurrences == 1,
-                "Number of occurrences of 'Shipment ID = 100' in the list = " + occurrences + " (should be 1)\n" + output);
-        check("Shipments - duplicate rejection message appeared",
-                output.contains("already exists"), "Expected rejection message did not appear\n" + output);
+                "عدد ظهور 'Shipment ID = 100' في القائمة = " + occurrences + " (يجب أن يكون 1)\n" + output);
+        check("Shipments - ظهرت رسالة رفض التكرار",
+                output.contains("already exists"), "لم تظهر رسالة الرفض المتوقعة\n" + output);
     }
 
-    // ---------- Test 7: Duplicate Product ID is not added twice to the ProductManagement list ----------
+    // ---------- اختبار 7: تكرار ID منتج لا يُضاف مرتين لقائمة ProductManagement ----------
     static void test7_ProductManagement_DuplicateIdNotAddedToList() {
-        System.out.println("\n--- Test 7: Duplicate Product ID in the list ---");
+        System.out.println("\n--- اختبار 7: تكرار ID منتج في القائمة ---");
         String simulatedInput =
                 "10\nTestName\n5\n5\n3\nCatA\n" +    // addNewProduct #1
-                        "10\nTestName2\n7\n7\n3\nCatA\n";     // addNewProduct #2 (duplicate)
+                "10\nTestName2\n7\n7\n3\nCatA\n";     // addNewProduct #2 (مكرر)
 
-        java.io.InputStream originalIn = System.in;
+        InputStream originalIn = System.in;
         java.io.PrintStream originalOut = System.out;
         System.setIn(new SlowInputStream(simulatedInput));
 
@@ -235,25 +233,25 @@ public class Tests {
         }
 
         int occurrences = countOccurrences(output, "ID = 10}");
-        check("Products - duplicate product was not added to the list (only one occurrence for ID=10)",
+        check("Products - المنتج المكرر لم يُضَف للقائمة (تكرار واحد فقط لـ ID=10)",
                 occurrences == 1,
-                "Number of occurrences of 'ID = 10}' in the list = " + occurrences + " (should be 1)\n" + output);
-        check("Products - duplicate rejection message appeared",
-                output.contains("already exists"), "Expected rejection message did not appear\n" + output);
+                "عدد ظهور 'ID = 10}' في القائمة = " + occurrences + " (يجب أن يكون 1)\n" + output);
+        check("Products - ظهرت رسالة رفض التكرار",
+                output.contains("already exists"), "لم تظهر رسالة الرفض المتوقعة\n" + output);
     }
 
-    // ---------- Test 8: Deleting a product removes it from productMap as well (not only from list and tree) ----------
+    // ---------- اختبار 8: حذف منتج يُزيله من productMap أيضًا (وليس فقط من القائمة والشجرة) ----------
     static void test8_ProductManagement_DeleteRemovesFromMap() {
-        System.out.println("\n--- Test 8: Synchronization of product deletion with HashMap ---");
+        System.out.println("\n--- اختبار 8: تزامن حذف المنتج مع HashMap ---");
 
-        // Two products: delete the first (20) and ensure the second (30) still exists and the first is completely gone
+        // منتجان: نحذف الأول (20) ونتأكد أن الثاني (30) ما زال موجودًا وأن الأول اختفى تمامًا
         String simulatedInput =
                 "20\nNameA\n5\n5\n3\nCatA\n" +   // addNewProduct #1 (ID=20)
-                        "30\nNameB\n5\n5\n3\nCatA\n" +   // addNewProduct #2 (ID=30)
-                        "20\n" +                 // deleteProductByID -> deletes ID=20
-                        "20\n";                  // searchProductByID -> searches for ID=20 (deleted)
+                "30\nNameB\n5\n5\n3\nCatA\n" +   // addNewProduct #2 (ID=30)
+                "20\n" +                 // deleteProductByID -> يحذف ID=20
+                "20\n";                  // searchProductByID -> يبحث عن ID=20 (المحذوف)
 
-        java.io.InputStream originalIn = System.in;
+        InputStream originalIn = System.in;
         java.io.PrintStream originalOut = System.out;
         System.setIn(new SlowInputStream(simulatedInput));
 
@@ -267,31 +265,31 @@ public class Tests {
             pm.addNewProduct();
             pm.addNewProduct();
             pm.deleteProductByID();
-            searchResult = pm.searchProductByID(); // must return null after deletion
+            searchResult = pm.searchProductByID(); // يجب أن يُعيد null بعد الحذف
             mapStillHasKey = pm.productMap.containsKey(20);
         } finally {
             System.setOut(originalOut);
             System.setIn(originalIn);
         }
 
-        check("Products - search after deletion returns null (no longer in productMap)",
-                searchResult == null, "Expected null but got: " + searchResult);
-        check("Products - productMap.containsKey(20) became false after deletion",
-                !mapStillHasKey, "The ID still exists in productMap despite deletion!");
-        check("Products - the other element (30) still exists in productMap",
-                pm.productMap.containsKey(30), "Element 30 was wrongly lost while deleting 20!");
+        check("Products - البحث بعد الحذف يُعيد null (لم يعد موجودًا في productMap)",
+                searchResult == null, "توقعنا null لكن أُعيد: " + searchResult);
+        check("Products - productMap.containsKey(20) أصبحت false بعد الحذف",
+                !mapStillHasKey, "الـ ID ما زال موجودًا في productMap رغم الحذف!");
+        check("Products - العنصر الآخر (30) ما زال موجودًا في productMap",
+                pm.productMap.containsKey(30), "فُقد العنصر 30 خطأً أثناء حذف 20!");
     }
 
-    // ---------- Test 9: Deleting a shipment removes it from shipmentMap as well ----------
+    // ---------- اختبار 9: حذف شحنة يُزيلها من shipmentMap أيضًا ----------
     static void test9_ShipmentsRegisters_DeleteRemovesFromMap() {
-        System.out.println("\n--- Test 9: Synchronization of shipment deletion with HashMap ---");
+        System.out.println("\n--- اختبار 9: تزامن حذف الشحنة مع HashMap ---");
 
-        // One shipment (ID=200) we add with a given priority, then delete via deleteShipmentWithPriority
+        // شحنة واحدة (ID=200) نضيفها بأولوية معينة، ثم نحذفها عبر deleteShipmentWithPriority
         String simulatedInput =
                 "200\nTestDest\n50\n2030\n1\n1\n5\n" + // addShipment (ID=200), priority=5
-                        "200\n";                                 // searchShipmentByID after deletion
+                "200\n";                                 // searchShipmentByID بعد الحذف
 
-        java.io.InputStream originalIn = System.in;
+        InputStream originalIn = System.in;
         java.io.PrintStream originalOut = System.out;
         System.setIn(new SlowInputStream(simulatedInput));
 
@@ -305,35 +303,35 @@ public class Tests {
         boolean mapStillHasKey;
         try {
             sr.addShipment(pm);
-            sr.deleteShipmentWithPriority(); // deletes the highest priority (which is the only one here: ID=200)
-            searchResult = sr.searchShipmentByID(); // must return null after deletion
+            sr.deleteShipmentWithPriority(); // يحذف أعلى أولوية (وهي الوحيدة هنا: ID=200)
+            searchResult = sr.searchShipmentByID(); // يجب أن يُعيد null بعد الحذف
             mapStillHasKey = sr.shipmentMap.containsKey(200);
         } finally {
             System.setOut(originalOut);
             System.setIn(originalIn);
         }
 
-        check("Shipments - search after deletion returns null (no longer in shipmentMap)",
-                searchResult == null, "Expected null but got: " + searchResult);
-        check("Shipments - shipmentMap.containsKey(200) became false after deletion",
-                !mapStillHasKey, "The ID still exists in shipmentMap despite deletion!");
+        check("Shipments - البحث بعد الحذف يُعيد null (لم تعد موجودة في shipmentMap)",
+                searchResult == null, "توقعنا null لكن أُعيد: " + searchResult);
+        check("Shipments - shipmentMap.containsKey(200) أصبحت false بعد الحذف",
+                !mapStillHasKey, "الـ ID ما زال موجودًا في shipmentMap رغم الحذف!");
     }
 
-    // ---------- Test 10: Save all data, then load it into new objects and verify consistency ----------
+    // ---------- اختبار 10: حفظ كامل البيانات ثم تحميلها في كائنات جديدة والتحقق من التطابق ----------
     static void test10_Persistence_SaveAndLoadRoundTrip() {
-        System.out.println("\n--- Test 10: Save and Load Round-Trip ---");
+        System.out.println("\n--- اختبار 10: حفظ واسترجاع البيانات (Round-Trip) ---");
 
-        // Clean up any previous data from manual runs before the test
+        // تنظيف أي بيانات سابقة من تشغيلات يدوية قبل الاختبار
         deleteRecursively(new File("store_data"));
 
-        // Save phase: product (ID=1000) + shipment (ID=2000) takes 5 units from it + order with priority 7
+        // مرحلة الحفظ: منتج (ID=1000) + شحنة (ID=2000) تأخذ 5 وحدات منه + طلب بأولوية 7
         String simulatedInput =
                 "1000\nWidget\n10\n50\n8\nGadgets\n" +          // addNewProduct (threshold=8, category=Gadgets)
-                        "2000\nCity\n1000\n2030\n1\n1\n" +   // ReadInfoOfShipment
-                        "1000\n5\n2\n" +                       // takeProductByID(id=1000,qty=5) then no more (2)
-                        "7\n";                                  // order priority
+                "2000\nCity\n1000\n2030\n1\n1\n" +   // ReadInfoOfShipment
+                "1000\n5\n2\n" +                       // takeProductByID(id=1000,qty=5) ثم لا مزيد (2)
+                "7\n";                                  // أولوية الطلب
 
-        java.io.InputStream originalIn = System.in;
+        InputStream originalIn = System.in;
         System.setIn(new SlowInputStream(simulatedInput));
 
         ProductManagement pm1 = new ProductManagement();
@@ -347,7 +345,7 @@ public class Tests {
 
         Persistence.saveAll(pm1, sr1, orders1);
 
-        // Load phase: completely new empty objects, loaded only from files (without any Scanner input)
+        // مرحلة التحميل: كائنات جديدة تمامًا، فارغة، تُحمَّل من الملفات فقط (بدون أي إدخال Scanner)
         ProductManagement pm2 = new ProductManagement();
         Orders orders2 = new Orders();
         ShipmentsRegisters sr2 = new ShipmentsRegisters(orders2);
@@ -355,80 +353,80 @@ public class Tests {
         Persistence.loadAll(pm2, sr2, orders2);
 
         Product loadedProduct = pm2.productMap.get(1000);
-        check("Persistence - loaded product exists and has the same name/price",
+        check("Persistence - المنتج المحمَّل موجود وبنفس الاسم/السعر",
                 loadedProduct != null && loadedProduct.getNameOfProduct().equals("Widget") && loadedProduct.getPriceOfProduct() == 10,
-                "Loaded product: " + loadedProduct);
-        check("Persistence - product quantity after save/load = 45 (50 - 5 taken for the shipment)",
+                "المنتج المحمَّل: " + loadedProduct);
+        check("Persistence - كمية المنتج بعد الحفظ/التحميل = 45 (50 - 5 المأخوذة للشحنة)",
                 loadedProduct != null && loadedProduct.getQuantityOfProduct() == 45,
-                "Actual quantity: " + (loadedProduct == null ? "null" : loadedProduct.getQuantityOfProduct()));
+                "الكمية الفعلية: " + (loadedProduct == null ? "null" : loadedProduct.getQuantityOfProduct()));
 
         Shipment loadedShipment = sr2.shipmentMap.get(2000);
-        check("Persistence - loaded shipment exists and has the same destination",
+        check("Persistence - الشحنة المحمَّلة موجودة وبنفس الوجهة",
                 loadedShipment != null && "City".equals(loadedShipment.getShipmentDestination()),
-                "Loaded shipment: " + loadedShipment);
-        check("Persistence - shipment cost was recalculated correctly (5*10=50)",
+                "الشحنة المحمَّلة: " + loadedShipment);
+        check("Persistence - تكلفة الشحنة أُعيد حسابها بشكل صحيح (5*10=50)",
                 loadedShipment != null && loadedShipment.getShipmentCost() == 50f,
-                "Actual cost: " + (loadedShipment == null ? "null" : loadedShipment.getShipmentCost()));
+                "التكلفة الفعلية: " + (loadedShipment == null ? "null" : loadedShipment.getShipmentCost()));
 
-        check("Persistence - number of loaded orders = 1",
+        check("Persistence - عدد الطلبات المحمَّلة = 1",
                 orders2.listOfOrder.size() == 1,
-                "Actual count: " + orders2.listOfOrder.size());
+                "العدد الفعلي: " + orders2.listOfOrder.size());
         if (!orders2.listOfOrder.isEmpty()){
             Order loadedOrder = orders2.listOfOrder.get(0);
-            check("Persistence - priority of the loaded order = 7",
-                    loadedOrder.getPriority() == 7, "Actual priority: " + loadedOrder.getPriority());
-            check("Persistence - loaded order is linked to the same loaded shipment object (not an old reference)",
-                    loadedOrder.getShipment() == loadedShipment, "Different reference!");
+            check("Persistence - أولوية الطلب المحمَّل = 7",
+                    loadedOrder.getPriority() == 7, "الأولوية الفعلية: " + loadedOrder.getPriority());
+            check("Persistence - الطلب المحمَّل مرتبط بنفس كائن الشحنة المحمَّلة (وليس مرجعًا قديمًا)",
+                    loadedOrder.getShipment() == loadedShipment, "مرجع مختلف!");
         }
 
-        // Clean up after test to avoid contaminating real user data when running the program later
+        // تنظيف بعد الاختبار حتى لا تتلوث بيانات المستخدم الحقيقية عند تشغيل البرنامج لاحقًا
         deleteRecursively(new File("store_data"));
     }
 
-    // ---------- Test 11: Login attempts (repeated failures then success) ----------
+    // ---------- اختبار 11: محاولات تسجيل الدخول (فشل متكرر ثم نجاح) ----------
     static void test11_AuthManager_LoginAttemptsAndSuccess() {
-        System.out.println("\n--- Test 11: Login (wrong passwords then correct) ---");
+        System.out.println("\n--- اختبار 11: تسجيل الدخول (كلمات مرور خاطئة ثم صحيحة) ---");
         deleteRecursively(new File("store_data"));
 
-        // 3 consecutive wrong attempts, then a correct attempt later (used in the same object later)
+        // 3 محاولات خاطئة متتالية، ثم محاولة صحيحة بعد ذلك (تُستخدم في نفس الكائن لاحقًا)
         String simulatedInput =
-                "admin\nwrong1\n" + "admin\nwrong2\n" + "admin\nwrong3\n" + // 3 failures
-                        "admin\nadmin123\n";                                          // success
+                "admin\nwrong1\n" + "admin\nwrong2\n" + "admin\nwrong3\n" + // فشل 3 مرات
+                "admin\nadmin123\n";                                          // نجاح
 
-        java.io.InputStream originalIn = System.in;
+        InputStream originalIn = System.in;
         System.setIn(new SlowInputStream(simulatedInput));
 
-        AuthManager authManager = new AuthManager(); // creates a default admin account automatically
+        AuthManager authManager = new AuthManager(); // يُنشئ حساب admin افتراضي تلقائيًا
 
-        User failedResult = authManager.login();       // consumes first 6 tokens (3 wrong attempts)
-        User successResult = authManager.login();      // consumes last 2 tokens (correct attempt)
+        User failedResult = authManager.login();       // يستهلك أول 6 tokens (3 محاولات خاطئة)
+        User successResult = authManager.login();      // يستهلك آخر 2 tokens (محاولة صحيحة)
 
         System.setIn(originalIn);
         deleteRecursively(new File("store_data"));
 
-        check("Auth - login fails and returns null after 3 wrong attempts",
-                failedResult == null, "Actual result: " + failedResult);
-        check("Auth - login succeeds with the default correct password",
+        check("Auth - تسجيل الدخول يفشل ويُعيد null بعد 3 محاولات خاطئة",
+                failedResult == null, "النتيجة الفعلية: " + failedResult);
+        check("Auth - تسجيل الدخول ينجح بكلمة المرور الافتراضية الصحيحة",
                 successResult != null && successResult.getUsername().equals("admin") && successResult.getRole() == Role.ADMIN,
-                "Actual result: " + successResult);
+                "النتيجة الفعلية: " + successResult);
     }
 
-    // ---------- Test 12: Employee cannot actually execute an Admin-only action ----------
+    // ---------- اختبار 12: موظف (Employee) لا يستطيع فعليًا تنفيذ عملية Admin-only ----------
     static void test12_RoleBasedAccess_EmployeeBlockedFromAdminAction() {
-        System.out.println("\n--- Test 12: Employee blocked from Admin-only action (adding a product) ---");
+        System.out.println("\n--- اختبار 12: منع الموظف من عملية Admin-only (إضافة منتج) ---");
         deleteRecursively(new File("store_data"));
 
-        java.io.InputStream originalIn = System.in;
+        InputStream originalIn = System.in;
         java.io.PrintStream originalOut = System.out;
         java.io.ByteArrayOutputStream capturedOut = new java.io.ByteArrayOutputStream();
 
         try {
-            // Session 1 (default Admin): registers a new employee "bob" then exits
+            // الجلسة 1 (Admin الافتراضي): يُسجّل موظفًا جديدًا "bob" ثم يخرج
             System.setIn(new SlowInputStream("admin\nadmin123\n18\nbob\nbob123\n2\n24\n"));
             System.setOut(new java.io.PrintStream(capturedOut));
             new Store().startStore();
 
-            // Session 2 (bob as employee): tries to execute "1- Add a new Product" (Admin only) then exits
+            // الجلسة 2 (bob كموظف): يحاول تنفيذ "1- Add a new Product" (Admin only) ثم يخرج
             System.setIn(new SlowInputStream("bob\nbob123\n1\n24\n"));
             new Store().startStore();
         } finally {
@@ -437,32 +435,32 @@ public class Tests {
         }
         String output = capturedOut.toString();
 
-        check("Auth - Access Denied message appeared for employee who tried to add a product",
-                output.contains("Access Denied"), "Expected denial message did not appear");
+        check("Auth - ظهرت رسالة رفض الصلاحية لموظف حاول إضافة منتج",
+                output.contains("Access Denied"), "لم تظهر رسالة الرفض المتوقعة");
 
-        // We verify actually (not just from the message) that no product was added: we load new data from disk
+        // نتحقق فعليًا (وليس فقط من الرسالة) أن لا منتج أُضيف: نحمّل بيانات جديدة من القرص
         ProductManagement verifyPm = new ProductManagement();
         Persistence.loadAll(verifyPm, new ShipmentsRegisters(new Orders()), new Orders());
-        check("Auth - no product was actually added despite the employee's attempt (the block is real, not just cosmetic)",
-                verifyPm.listOfProduct.isEmpty(), "Actual number of products: " + verifyPm.listOfProduct.size());
+        check("Auth - لم يُضَف أي منتج فعليًا رغم محاولة الموظف (الحظر حقيقي وليس شكليًا فقط)",
+                verifyPm.listOfProduct.isEmpty(), "عدد المنتجات الفعلي: " + verifyPm.listOfProduct.size());
 
         deleteRecursively(new File("store_data"));
     }
 
-    // ---------- Test 13: Low stock alert (immediate alert + comprehensive report) ----------
+    // ---------- اختبار 13: تنبيه انخفاض المخزون (تنبيه فوري + تقرير شامل) ----------
     static void test13_LowStockAlert_TriggersAndReportCorrectly() {
-        System.out.println("\n--- Test 13: Low Stock Alert ---");
+        System.out.println("\n--- اختبار 13: تنبيه انخفاض المخزون ---");
 
-        // A: quantity=10, threshold=5 -> not low on addition, but becomes low later after updating quantity to 4
-        // B: quantity=3, threshold=5 -> low immediately upon addition
-        // C: quantity=20, threshold=5 -> stays above threshold throughout the test (should not appear in the report)
+        // A: كمية=10، حد=5 -> ليست منخفضة عند الإضافة، لكن ستُصبح منخفضة لاحقًا بعد تحديث الكمية إلى 4
+        // B: كمية=3، حد=5  -> منخفضة فورًا عند الإضافة نفسها
+        // C: كمية=20، حد=5 -> تبقى فوق الحد طوال الاختبار (يجب ألا تظهر في التقرير)
         String simulatedInput =
                 "1\nProdA\n10\n10\n5\nCatX\n" +
-                        "2\nProdB\n10\n3\n5\nCatX\n" +
-                        "3\nProdC\n10\n20\n5\nCatX\n" +
-                        "1\n4\n"; // updateTheQuantityOfProductByID(ID=1) -> new quantity = 4
+                "2\nProdB\n10\n3\n5\nCatX\n" +
+                "3\nProdC\n10\n20\n5\nCatX\n" +
+                "1\n4\n"; // updateTheQuantityOfProductByID(ID=1) -> كمية جديدة = 4
 
-        java.io.InputStream originalIn = System.in;
+        InputStream originalIn = System.in;
         java.io.PrintStream originalOut = System.out;
         System.setIn(new SlowInputStream(simulatedInput));
 
@@ -473,9 +471,9 @@ public class Tests {
         String output;
         try {
             pm.addNewProduct(); // A
-            pm.addNewProduct(); // B (low immediately)
+            pm.addNewProduct(); // B (منخفضة فورًا)
             pm.addNewProduct(); // C
-            pm.updateTheQuantityOfProductByID(); // A becomes low now
+            pm.updateTheQuantityOfProductByID(); // A تصبح منخفضة الآن
             pm.printLowStockProducts();
         } finally {
             System.setOut(originalOut);
@@ -483,40 +481,40 @@ public class Tests {
             output = capturedOut.toString();
         }
 
-        check("LowStock - isLowStock() is true for product A after reducing its quantity (4<=5)",
-                pm.productMap.get(1).isLowStock(), "Product A was not considered low even though its quantity is 4 <= its threshold 5");
-        check("LowStock - isLowStock() is true for product B since its addition (3<=5)",
-                pm.productMap.get(2).isLowStock(), "Product B was not considered low even though its quantity is 3 <= its threshold 5");
-        check("LowStock - isLowStock() is false for product C which stays above the threshold (20>5)",
-                !pm.productMap.get(3).isLowStock(), "Product C was wrongly considered low stock even though its quantity is 20");
+        check("LowStock - isLowStock() صحيحة للمنتج A بعد تخفيض كميته (4<=5)",
+                pm.productMap.get(1).isLowStock(), "المنتج A لم يُعتبر منخفضًا رغم أن كميته 4 <= حده 5");
+        check("LowStock - isLowStock() صحيحة للمنتج B منذ إضافته (3<=5)",
+                pm.productMap.get(2).isLowStock(), "المنتج B لم يُعتبر منخفضًا رغم أن كميته 3 <= حده 5");
+        check("LowStock - isLowStock() خاطئة (false) للمنتج C الذي يبقى فوق الحد (20>5)",
+                !pm.productMap.get(3).isLowStock(), "المنتج C اعتُبر خطأً منخفض المخزون رغم أن كميته 20");
 
-        check("LowStock - immediate alert appeared when adding product B with low quantity",
+        check("LowStock - ظهر تنبيه فوري عند إضافة المنتج B بكمية منخفضة",
                 output.contains("LOW STOCK ALERT") && output.contains("ProdB"),
-                "No immediate alert appeared when adding B\n" + output);
+                "لم يظهر تنبيه فوري عند إضافة B\n" + output);
 
         int lowStockReportLines = countOccurrences(output, "Minimum Threshold");
-        check("LowStock - low stock report contains exactly two products (A and B)",
+        check("LowStock - تقرير المنتجات المنخفضة يحتوي على منتجين بالضبط (A و B)",
                 lowStockReportLines == 2,
-                "Number of lines in report = " + lowStockReportLines + " (expected 2)\n" + output);
-        check("LowStock - low stock report does not include product C at all",
+                "عدد الأسطر في التقرير = " + lowStockReportLines + " (المتوقع 2)\n" + output);
+        check("LowStock - تقرير المنتجات المنخفضة لا يتضمن المنتج C إطلاقًا",
                 !output.substring(output.lastIndexOf("Low Stock Products")).contains("ProdC"),
-                "Product C wrongly appeared in the low stock report\n" + output);
+                "ظهر المنتج C خطأً في تقرير المخزون المنخفض\n" + output);
     }
 
-    // ---------- Test 14: Product categories (indexing + reports) ----------
+    // ---------- اختبار 14: فهرسة التصنيفات وتزامنها مع الحذف + التقارير ----------
     static void test14_Categories_IndexingAndReportsWork() {
-        System.out.println("\n--- Test 14: Product Categories (Indexing + Reports) ---");
+        System.out.println("\n--- اختبار 14: تصنيفات المنتجات (فهرسة + تقارير) ---");
 
-        // A,B in Electronics and C in Food
+        // A,B في Electronics و C في Food
         String simulatedInput =
                 "1\nProdA\n10\n10\n5\nElectronics\n" +
-                        "2\nProdB\n10\n10\n5\nElectronics\n" +
-                        "3\nProdC\n10\n10\n5\nFood\n" +
-                        "1\n" +      // deleteProductByID -> deletes A
-                        "2\n" +      // deleteProductByID -> deletes B (last element in Electronics)
-                        "Food\n";    // printProductsByCategory -> asks for the category name
+                "2\nProdB\n10\n10\n5\nElectronics\n" +
+                "3\nProdC\n10\n10\n5\nFood\n" +
+                "1\n" +      // deleteProductByID -> يحذف A
+                "2\n" +      // deleteProductByID -> يحذف B (آخر عنصر في Electronics)
+                "Food\n";    // printProductsByCategory -> يسأل عن اسم التصنيف
 
-        java.io.InputStream originalIn = System.in;
+        InputStream originalIn = System.in;
         java.io.PrintStream originalOut = System.out;
         System.setIn(new SlowInputStream(simulatedInput));
 
@@ -526,64 +524,64 @@ public class Tests {
         pm.addNewProduct(); // B
         pm.addNewProduct(); // C
 
-        check("Categories - Electronics index contains two products (A,B) after addition",
+        check("Categories - فهرس Electronics يحتوي على منتجين (A,B) بعد الإضافة",
                 pm.categoryMap.containsKey("Electronics") && pm.categoryMap.get("Electronics").size() == 2,
-                "Actual content: " + pm.categoryMap.get("Electronics"));
-        check("Categories - Food index contains one product (C) after addition",
+                "المحتوى الفعلي: " + pm.categoryMap.get("Electronics"));
+        check("Categories - فهرس Food يحتوي على منتج واحد (C) بعد الإضافة",
                 pm.categoryMap.containsKey("Food") && pm.categoryMap.get("Food").size() == 1,
-                "Actual content: " + pm.categoryMap.get("Food"));
+                "المحتوى الفعلي: " + pm.categoryMap.get("Food"));
 
-        pm.deleteProductByID(); // deletes A
+        pm.deleteProductByID(); // يحذف A
 
-        check("Categories - Electronics index now contains only one product (B) after deleting A",
+        check("Categories - فهرس Electronics أصبح يحتوي على منتج واحد فقط (B) بعد حذف A",
                 pm.categoryMap.containsKey("Electronics") && pm.categoryMap.get("Electronics").size() == 1,
-                "Actual content: " + pm.categoryMap.get("Electronics"));
+                "المحتوى الفعلي: " + pm.categoryMap.get("Electronics"));
 
-        pm.deleteProductByID(); // deletes B (last element in Electronics)
+        pm.deleteProductByID(); // يحذف B (آخر عنصر في Electronics)
 
-        check("Categories - Electronics key was completely removed from the index after deleting the last element in it",
+        check("Categories - مفتاح Electronics أُزيل بالكامل من الفهرس بعد حذف آخر عنصر فيه",
                 !pm.categoryMap.containsKey("Electronics"),
-                "The key still exists even though its list should be empty!");
+                "المفتاح ما زال موجودًا رغم أن قائمته يجب أن تكون فارغة!");
 
         java.io.ByteArrayOutputStream capturedOut = new java.io.ByteArrayOutputStream();
         System.setOut(new java.io.PrintStream(capturedOut));
         String output;
         try {
-            pm.printProductsByCategory(); // prints all categories then asks for "Food"
+            pm.printProductsByCategory(); // يطبع كل التصنيفات ثم يسأل عن "Food"
         } finally {
             System.setOut(originalOut);
             System.setIn(originalIn);
             output = capturedOut.toString();
         }
 
-        check("Categories - report for Food category contains ProdC",
-                output.contains("ProdC"), "ProdC did not appear in the Food category report\n" + output);
-        check("Categories - report for Food category does not contain Electronics at all",
-                !output.contains("Electronics"), "Electronics category wrongly appeared even though there are no products in it\n" + output);
+        check("Categories - تقرير منتجات تصنيف Food يحتوي على ProdC",
+                output.contains("ProdC"), "لم يظهر ProdC في تقرير تصنيف Food\n" + output);
+        check("Categories - تقرير منتجات تصنيف Food لا يحتوي على Electronics إطلاقًا",
+                !output.contains("Electronics"), "ظهر تصنيف Electronics خطأً رغم عدم وجود منتجات فيه\n" + output);
     }
 
-    // ---------- Test 15: Audit Log records logins (success/failure), successful actions, and denials ----------
+    // ---------- اختبار 15: سجل العمليات يُسجّل الدخول (نجاح/فشل)، العمليات الناجحة، والرفض ----------
     static void test15_AuditLog_RecordsActionsAndDenials() {
-        System.out.println("\n--- Test 15: Audit Log ---");
+        System.out.println("\n--- اختبار 15: سجل العمليات (Audit Log) ---");
         deleteRecursively(new File("store_data"));
 
-        java.io.InputStream originalIn = System.in;
+        InputStream originalIn = System.in;
         java.io.PrintStream originalOut = System.out;
         java.io.ByteArrayOutputStream capturedOut = new java.io.ByteArrayOutputStream();
 
         try {
-            // Session 1 (Admin): wrong login attempt, then correct, then add product, then register employee, then exit
+            // الجلسة 1 (Admin): محاولة دخول خاطئة، ثم صحيحة، ثم إضافة منتج، ثم تسجيل موظف، ثم خروج
             System.setIn(new SlowInputStream(
                     "admin\nwrongpass\n" +
-                            "admin\nadmin123\n" +
-                            "1\n10\nProdX\n5\n5\n5\nCatY\n" + // Add product (Admin only, successful)
-                            "18\nbob\nbob123\n2\n" +            // Register new employee
-                            "24\n"                                // Exit
+                    "admin\nadmin123\n" +
+                    "1\n10\nProdX\n5\n5\n5\nCatY\n" + // إضافة منتج (Admin only, ناجحة)
+                    "18\nbob\nbob123\n2\n" +            // تسجيل موظف جديد
+                    "24\n"                                // خروج
             ));
             System.setOut(new java.io.PrintStream(capturedOut));
             new Store().startStore();
 
-            // Session 2 (bob as employee): successful login, attempt to delete product (Admin only -> denied), then exit
+            // الجلسة 2 (bob كموظف): دخول ناجح، محاولة حذف منتج (Admin only -> رفض)، ثم خروج
             System.setIn(new SlowInputStream("bob\nbob123\n6\n24\n"));
             new Store().startStore();
         } finally {
@@ -598,21 +596,21 @@ public class Tests {
             logContent = "";
         }
 
-        check("AuditLog - failed login attempt for admin was logged",
+        check("AuditLog - سُجّلت محاولة دخول فاشلة لـ admin",
                 logContent.contains("admin") && logContent.contains("Login") && logContent.contains("FAILED"),
-                "Actual log:\n" + logContent);
-        check("AuditLog - successful login for admin was logged",
-                logContent.contains("admin | Login | SUCCESS"), "Actual log:\n" + logContent);
-        check("AuditLog - successful 'Add Product' operation by admin was logged",
-                logContent.contains("admin | Add Product | SUCCESS"), "Actual log:\n" + logContent);
-        check("AuditLog - successful 'Register New Employee' operation by admin was logged",
-                logContent.contains("admin | Register New Employee | SUCCESS"), "Actual log:\n" + logContent);
-        check("AuditLog - successful login for bob was logged",
-                logContent.contains("bob | Login | SUCCESS"), "Actual log:\n" + logContent);
-        check("AuditLog - denied 'Delete Product' attempt by bob with denial reason was logged",
-                logContent.contains("bob | Delete Product | DENIED"), "Actual log:\n" + logContent);
-        check("AuditLog - logout was logged for both sessions",
-                countOccurrences(logContent, "Logout") == 2, "Actual log:\n" + logContent);
+                "السجل الفعلي:\n" + logContent);
+        check("AuditLog - سُجّل دخول ناجح لـ admin",
+                logContent.contains("admin | Login | SUCCESS"), "السجل الفعلي:\n" + logContent);
+        check("AuditLog - سُجّلت عملية 'Add Product' الناجحة باسم admin",
+                logContent.contains("admin | Add Product | SUCCESS"), "السجل الفعلي:\n" + logContent);
+        check("AuditLog - سُجّلت عملية 'Register New Employee' الناجحة باسم admin",
+                logContent.contains("admin | Register New Employee | SUCCESS"), "السجل الفعلي:\n" + logContent);
+        check("AuditLog - سُجّل دخول ناجح لـ bob",
+                logContent.contains("bob | Login | SUCCESS"), "السجل الفعلي:\n" + logContent);
+        check("AuditLog - سُجّلت محاولة 'Delete Product' المرفوضة باسم bob مع سبب الرفض",
+                logContent.contains("bob | Delete Product | DENIED"), "السجل الفعلي:\n" + logContent);
+        check("AuditLog - سُجّل خروج (Logout) لكلا الجلستين",
+                countOccurrences(logContent, "Logout") == 2, "السجل الفعلي:\n" + logContent);
 
         deleteRecursively(new File("store_data"));
     }
@@ -633,5 +631,25 @@ public class Tests {
             idx += sub.length();
         }
         return count;
+    }
+    static void test5_Store_InvalidMenuDoesNotCrash() {
+        System.out.println("\n--- اختبار 5: رقم قائمة خاطئ في Store (بعد تسجيل دخول Admin افتراضي) ---");
+        // ننظف بيانات المستخدمين أولاً لضمان إنشاء حساب Admin افتراضي معروف (admin/admin123)
+        deleteRecursively(new File("store_data"));
+        // نحاكي: تسجيل دخول admin/admin123 -> رقم خاطئ (999) -> خروج صحيح (20)
+        String simulatedInput = "admin\nadmin123\n999\n24\n";
+        InputStream originalIn = System.in;
+        System.setIn(new SlowInputStream(simulatedInput));
+        try {
+            new Store().startStore();
+            check("Store Menu - تسجيل الدخول نجح، البرنامج استمر بعد رقم خاطئ ثم خرج بشكل طبيعي (24)",
+                    true, "");
+        } catch (Exception e) {
+            check("Store Menu - تسجيل الدخول نجح، البرنامج استمر بعد رقم خاطئ ثم خرج بشكل طبيعي (24)",
+                    false, "حدث استثناء: " + e);
+        } finally {
+            System.setIn(originalIn);
+            deleteRecursively(new File("store_data")); // تنظيف بعد الاختبار
+        }
     }
 }

@@ -86,6 +86,8 @@ public class Orders {
                 '}';
     }
 
+    // ===================== الحفظ والاسترجاع (Persistence) =====================
+    // صيغة السطر: shipmentId,priority
     public void saveToFile(String path){
         try (PrintWriter writer = new PrintWriter(new FileWriter(path))) {
             for (Order o : listOfOrder){
@@ -96,10 +98,11 @@ public class Orders {
         }
     }
 
+    // يحتاج ShipmentsRegisters محمّلة مسبقًا للربط بين shipmentId والشحنة الفعلية
     public void loadFromFile(String path, ShipmentsRegisters shipmentsRegisters){
         File file = new File(path);
         if (!file.exists()){
-            return;
+            return; // لا يوجد ملف بيانات سابق - أمر طبيعي في أول تشغيل
         }
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
@@ -110,7 +113,7 @@ public class Orders {
                 int priority = Integer.parseInt(parts[1]);
 
                 Shipment shipment = shipmentsRegisters.shipmentMap.get(shipmentId);
-                if (shipment == null) continue;
+                if (shipment == null) continue; // شحنة غير موجودة (بيانات غير متسقة) - تخطّ بأمان
 
                 Order order = new Order();
                 order.setShipment(shipment);
@@ -120,6 +123,55 @@ public class Orders {
             }
         } catch (IOException e){
             System.out.println(" Error while loading orders: " + e.getMessage());
+        }
+    }
+
+    // ===================== دوال صديقة للواجهة الرسومية (GUI) =====================
+
+    public String addOrderGui(Shipment shipment, int priority){
+        if (priority < 1 || priority > 10) return "Priority must be between 1 and 10.";
+        Order order = new Order();
+        order.setShipment(shipment);
+        order.setPriority(priority);
+        listOfOrder.add(order);
+        heapPriority.AddOrder(order);
+        return null;
+    }
+
+    // تعديل أولوية طلب مرتبط بشحنة معيّنة (العملية 13 في قائمة الكونسول)
+    public String updatePriorityGui(int shipmentId, int newPriority){
+        if (newPriority < 1 || newPriority > 10) return "Priority must be between 1 and 10.";
+        for (Order o : listOfOrder){
+            if (o.getShipment().getShipmentId() == shipmentId){
+                o.setPriority(newPriority);
+                heapPriority.buildMaxHeapify(); // نُعيد ترتيب الكومة بعد تغيير الأولوية
+                return null;
+            }
+        }
+        return "No order found for this shipment.";
+    }
+
+    // يُرجع (ويحذف) الطلب الأعلى أولوية عبر الكومة - العملية 12 في قائمة الكونسول
+    public Order returnHighestPriorityOrderGui(){
+        if (listOfOrder.isEmpty()) return null;
+        Order order = heapPriority.DeleteRoot();
+        listOfOrder.remove(order);
+        return order;
+    }
+
+    // يحذف الطلب المرتبط بشحنة معيّنة (وليس بالضرورة الأعلى أولوية، بخلاف نسخة الكونسول)
+    public void deleteOrderByShipmentIdGui(int shipmentId){
+        Order toRemove = null;
+        for (Order o : listOfOrder){
+            if (o.getShipment().getShipmentId() == shipmentId){
+                toRemove = o;
+                break;
+            }
+        }
+        if (toRemove != null){
+            listOfOrder.remove(toRemove);
+            heapPriority.arrayList.remove(toRemove);
+            heapPriority.buildMaxHeapify();
         }
     }
 }

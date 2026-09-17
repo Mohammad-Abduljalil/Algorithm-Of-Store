@@ -11,7 +11,12 @@ import java.util.Scanner;
 
 public class ShipmentsRegisters {
     private ArrayList<Shipment> listOfShipment;
-    HashMap<Integer, Shipment> shipmentMap;
+
+    public ArrayList<Shipment> getListOfShipment(){
+        return listOfShipment;
+    }
+
+    HashMap<Integer, Shipment> shipmentMap; // فهرس سريع O(1) للبحث بالـ ID، يعمل بالتوازي مع bstTree
     private Scanner scan=new Scanner(System.in);
     private BSTTree bstTree=new BSTTree();
     private HeapPriority heapPriority;
@@ -56,6 +61,7 @@ public class ShipmentsRegisters {
 
     public void addShipment(ProductManagement productManagement){
         Shipment shipment=ReadInfoOfShipment();
+        // فحص التكرار بـ O(1) عبر HashMap بدل O(log n) عبر الشجرة
         if (shipmentMap.containsKey(shipment.getShipmentId())){
             System.out.println(" This Shipment ID already exists! Please try again with a different ID. ");
             return;
@@ -196,7 +202,12 @@ public class ShipmentsRegisters {
         }
     }
 
-   public void saveToFile(String path){
+    // ===================== الحفظ والاسترجاع (Persistence) =====================
+    // صيغة السطر: id,destination,budget,deliveryDate,productsList
+    // productsList = "pid:name:price:qty|pid:name:price:qty|..." (فارغة لو لا منتجات)
+    // نُخزّن لقطة (Snapshot) من كل منتج (اسم/سعر وقت الشحن) بدل الاعتماد على وجوده لاحقًا في المخزون،
+    // لأن المنتج قد يُحذف من ProductManagement لاحقًا لكن يجب أن تبقى بيانات الشحنة القديمة صحيحة.
+    public void saveToFile(String path){
         try (PrintWriter writer = new PrintWriter(new FileWriter(path))) {
             for (Shipment s : listOfShipment){
                 StringBuilder productsPart = new StringBuilder();
@@ -216,7 +227,7 @@ public class ShipmentsRegisters {
     public void loadFromFile(String path){
         File file = new File(path);
         if (!file.exists()){
-            return;
+            return; // لا يوجد ملف بيانات سابق - أمر طبيعي في أول تشغيل
         }
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
@@ -229,7 +240,7 @@ public class ShipmentsRegisters {
                 String deliveryDate = parts[3];
                 String productsPart = parts.length > 4 ? parts[4] : "";
 
-                if (shipmentMap.containsKey(id)) continue;
+                if (shipmentMap.containsKey(id)) continue; // تفادي التكرار
 
                 Shipment shipment = new Shipment(id);
                 shipment.setShipmentDestination(destination);
@@ -260,6 +271,81 @@ public class ShipmentsRegisters {
         } catch (IOException e){
             System.out.println(" Error while loading shipments: " + e.getMessage());
         }
+    }
+
+    // ===================== دوال صديقة للواجهة الرسومية (GUI) =====================
+
+    public String addShipmentGui(int id, String destination, float budget, int year, int month, int day){
+        if (shipmentMap.containsKey(id)) return "This Shipment ID already exists!";
+        if (budget < 0) return "Budget must be a positive number.";
+        LocalDate date;
+        try {
+            date = LocalDate.of(year, month, day);
+        } catch (Exception e){
+            return "Invalid delivery date.";
+        }
+        if (date.isBefore(LocalDate.now())) return "Delivery date cannot be in the past.";
+
+        Shipment shipment = new Shipment(id);
+        shipment.setShipmentDestination(destination);
+        shipment.setMaximumBudgetOfShipment(budget);
+        shipment.setDeliveryDate(date.getYear() + "/" + date.getMonth() + "/" + date.getDayOfMonth());
+
+        listOfShipment.add(shipment);
+        bstTree.insertShipment(shipment);
+        shipmentMap.put(id, shipment);
+        return null;
+    }
+
+    // إضافة منتج لشحنة موجودة (نُنقص المخزون فعليًا ونتحقق من الميزانية، بمعزل عن Scanner)
+    public String addProductToShipmentGui(int shipmentId, int productId, int quantity, ProductManagement productManagement){
+        Shipment shipment = shipmentMap.get(shipmentId);
+        if (shipment == null) return "Shipment not found.";
+        Product product = productManagement.productMap.get(productId);
+        if (product == null) return "Product not found.";
+        if (quantity <= 0) return "Quantity must be greater than zero.";
+        if (quantity > product.getQuantityOfProduct()) return "Not enough stock available for this quantity.";
+
+        float futureCost = shipment.getShipmentCost() + (quantity * product.getPriceOfProduct());
+        if (futureCost > shipment.getMaximumBudgetOfShipment()){
+            return "This would exceed the shipment's maximum budget.";
+        }
+
+        Product snapshot = new Product(product.getID());
+        snapshot.setNameOfProduct(product.getNameOfProduct());
+        snapshot.setPriceOfProduct(product.getPriceOfProduct());
+        snapshot.setQuantityOfProduct(quantity);
+        shipment.listOfProducts.add(snapshot);
+        shipment.recalculateShipmentCost();
+
+        product.setQuantityOfProduct(product.getQuantityOfProduct() - quantity);
+        productManagement.quantityOfProducts -= quantity;
+        return null;
+    }
+
+    // تعديل تاريخ تسليم شحنة موجودة (العملية 11 في قائمة الكونسول)
+    public String updateDeliveryDateGui(int id, int year, int month, int day){
+        Shipment shipment = shipmentMap.get(id);
+        if (shipment == null) return "Shipment not found.";
+        LocalDate date;
+        try {
+            date = LocalDate.of(year, month, day);
+        } catch (Exception e){
+            return "Invalid delivery date.";
+        }
+        if (date.isBefore(LocalDate.now())) return "Delivery date cannot be in the past.";
+        shipment.setDeliveryDate(date.getYear() + "/" + date.getMonth() + "/" + date.getDayOfMonth());
+        this.orders.editShipmentInOrder(shipment, shipment.getShipmentId());
+        return null;
+    }
+
+    public String deleteShipmentGui(int id){
+        Shipment shipment = shipmentMap.get(id);
+        if (shipment == null) return "Shipment not found.";
+        bstTree.deleteShipmentByID(id);
+        listOfShipment.remove(shipment);
+        shipmentMap.remove(id);
+        return null;
     }
 
 }

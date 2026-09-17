@@ -6,6 +6,7 @@ public class BSTTree {
     public BSTTree() {
     }
 
+    // ===== دوال غلاف (Wrapper) تتعامل تلقائياً مع حقل root =====
     public void insertShipment(Shipment shipment){
         root = Insert(root, shipment);
     }
@@ -27,6 +28,8 @@ public class BSTTree {
         } else if (shipment.getShipmentId() > root.getShipmentId()) {
             root.right = Insert(root.right, shipment);
         } else {
+            // ID مكرر: لا تُضِف، لكن يجب إعادة root وليس null
+            // (إعادة null كانت تُسقط الشجرة بأكملها من منظور المستدعي الأعلى)
             return root;
         }
         return root;

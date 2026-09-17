@@ -48,6 +48,9 @@ public class Shipment {
         return this.shipmentId;
     }
 
+    // يُعيد حساب تكلفة الشحنة من قائمة منتجاتها الحالية.
+    // يُستخدم فقط عند تحميل البيانات من ملف (بدل إضافة setter مباشر لـ shipmentCost
+    // الذي قد يكسر مبدأ أن التكلفة هي دائمًا مجموع (سعر × كمية) لكل منتج).
     void recalculateShipmentCost(){
         float total = 0;
         for (Product p : listOfProducts) {

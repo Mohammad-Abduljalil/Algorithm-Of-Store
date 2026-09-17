@@ -1,6 +1,6 @@
 public class User {
     private String username;
-    private String passwordHash;
+    private String passwordHash; // لا نُخزّن كلمة المرور الصريحة أبدًا، فقط بصمتها (SHA-256)
     private Role role;
 
     public User(String username, String passwordHash, Role role){
